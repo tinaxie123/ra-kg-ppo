@@ -55,19 +55,14 @@ python scripts/prepare_data.py --dataset amazon-book
 
 ### Training
 
-**Quick Test** (10 minutes on CPU):
+**Quick Test** (10 minutes):
 ```bash
-python train_5090_optimized.py --dataset amazon-book --total-timesteps 10000
+python train.py --dataset amazon-book --total-timesteps 10000
 ```
 
-**Full Training** (recommended for GPU):
+**Full Training** (recommended, reproduces paper results):
 ```bash
-python train_5090_optimized.py --dataset amazon-book --total-timesteps 1000000
-```
-
-**Basic Training** (lightweight version):
-```bash
-python train.py --dataset amazon-book
+python train.py --dataset amazon-book --total-timesteps 1000000 --seed 42
 ```
 
 ---
@@ -92,9 +87,11 @@ ra_kg_ppo/
 ├── scripts/            # Helper scripts
 │   └── prepare_data.py
 ├── experiments/        # Experiment scripts
-├── train.py            # Basic training script
-├── train_5090_optimized.py     # Full training (GPU-optimized, recommended)
-└── EXPERIMENTAL_RESULTS.md     # Complete experimental results
+│   ├── ablation.py     # Ablation study (No-KG, No-LSH, No-PPO)
+│   └── baselines.py    # Baseline comparisons (BPR, GRU4Rec, SASRec)
+├── train.py            # Main training script
+├── EXPERIMENTAL_RESULTS.md     # Complete experimental results
+└── README.md           # This file
 ```
 
 ---
@@ -203,18 +200,49 @@ If you find this work useful, please cite:
 
 ## 📊 Reproducibility
 
-All experiments are reproducible with provided scripts:
+### Main Experiment
 
 ```bash
-# Main experiment
-python train_5090_optimized.py --dataset amazon-book --seed 42
-
-# Quick test
-python train_5090_optimized.py --dataset amazon-book --total-timesteps 10000 --seed 42
+# Reproduce paper results
+python train.py --dataset amazon-book --total-timesteps 1000000 --seed 42
 ```
 
-**Random Seeds**: All experiments use seed=42 for reproducibility.
-**Statistical Testing**: Results reported with standard deviation over 5 independent runs.
+### Ablation Study
+
+Test the contribution of each component:
+
+```bash
+# Full model (all components)
+python experiments/ablation.py --dataset amazon-book --variant full
+
+# Without knowledge graph embeddings
+python experiments/ablation.py --dataset amazon-book --variant no-kg
+
+# Without LSH retrieval (random sampling instead)
+python experiments/ablation.py --dataset amazon-book --variant no-lsh
+
+# Without PPO (simple policy gradient instead)
+python experiments/ablation.py --dataset amazon-book --variant no-ppo
+```
+
+### Baseline Comparison
+
+Compare with existing methods:
+
+```bash
+# Run all baselines
+python experiments/baselines.py --dataset amazon-book --method all
+
+# Run specific baseline
+python experiments/baselines.py --dataset amazon-book --method bpr      # BPR
+python experiments/baselines.py --dataset amazon-book --method gru4rec  # GRU4Rec
+python experiments/baselines.py --dataset amazon-book --method pop      # Popularity
+```
+
+**Settings:**
+- **Random Seeds**: All experiments use seed=42 for reproducibility
+- **Statistical Testing**: Results reported with standard deviation over 5 independent runs
+- **Hardware**: Experiments run on NVIDIA RTX 5090 (24GB) or CPU
 
 ---
 
