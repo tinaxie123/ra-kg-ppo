@@ -18,27 +18,27 @@ from utils.metrics import evaluate_ranking
 
 def get_args():
     parser = argparse.ArgumentParser(
-        description='RA-KG-PPO Training - 5090 Optimized'
+        description='RA-KG-PPO Training'
     )
     parser.add_argument('--dataset', type=str, default='amazon-book',
                        help='Dataset name')
     parser.add_argument('--data-path', type=str, default='./data/',
                        help='Data directory')
-    parser.add_argument('--item-emb-dim', type=int, default=128,  # 128
+    parser.add_argument('--item-emb-dim', type=int, default=128,  
                        help='Item embedding dimension')
-    parser.add_argument('--kg-emb-dim', type=int, default=256,  # 256
+    parser.add_argument('--kg-emb-dim', type=int, default=256,  
                        help='KG embedding dimension')
-    parser.add_argument('--hidden-dim', type=int, default=256,  # 256
+    parser.add_argument('--hidden-dim', type=int, default=256, 
                        help='Hidden state dimension')
-    parser.add_argument('--num-layers', type=int, default=3,  # 
+    parser.add_argument('--num-layers', type=int, default=3,  
                        help='Number of GRU layers')
     parser.add_argument('--shared-encoder', action='store_true',
                        help='Share encoder between actor and critic')
-    parser.add_argument('--num-hash-bits', type=int, default=10,  # 
+    parser.add_argument('--num-hash-bits', type=int, default=10,  
                        help='Number of LSH hash bits')
-    parser.add_argument('--num-tables', type=int, default=8,  # 
+    parser.add_argument('--num-tables', type=int, default=8,  
                        help='Number of LSH tables')
-    parser.add_argument('--candidate-size', type=int, default=200,  # 
+    parser.add_argument('--candidate-size', type=int, default=200,  
                        help='Candidate set size')
     parser.add_argument('--lr', type=float, default=3e-4,
                        help='Learning rate')
