@@ -64,28 +64,18 @@ def get_args():
     return parser.parse_args()
 
 
-# ============================================================================
-# 1. Popularity-based Recommendation
-# ============================================================================
-
 class PopRec:
-    """Simple popularity-based recommendation"""
 
     def __init__(self, train_data):
         print("Initializing PopRec (Popularity-based)...")
         self.item_counts = Counter()
-
-        # Count item occurrences
         for user_seq in train_data.values():
             self.item_counts.update(user_seq)
-
-        # Get most popular items
         self.popular_items = [item for item, count in self.item_counts.most_common()]
 
-        print(f"✓ Found {len(self.popular_items)} items")
+        print(f" Found {len(self.popular_items)} items")
 
     def predict(self, user_history, k=20):
-        """Return top-k popular items not in user history"""
         history_set = set(user_history)
         recommendations = []
 
@@ -97,25 +87,16 @@ class PopRec:
 
         return recommendations
 
-
-# ============================================================================
-# 2. BPR (Bayesian Personalized Ranking)
-# ============================================================================
-
 class BPRModel(nn.Module):
-    """BPR model for collaborative filtering"""
 
     def __init__(self, num_users, num_items, embedding_dim=128):
         super().__init__()
         self.user_embedding = nn.Embedding(num_users, embedding_dim)
         self.item_embedding = nn.Embedding(num_items, embedding_dim)
-
-        # Initialize
         nn.init.normal_(self.user_embedding.weight, std=0.01)
         nn.init.normal_(self.item_embedding.weight, std=0.01)
 
     def forward(self, user_ids, pos_item_ids, neg_item_ids):
-        """Compute BPR loss"""
         user_emb = self.user_embedding(user_ids)
         pos_item_emb = self.item_embedding(pos_item_ids)
         neg_item_emb = self.item_embedding(neg_item_ids)
@@ -126,7 +107,6 @@ class BPRModel(nn.Module):
         return pos_scores, neg_scores
 
     def predict(self, user_id, item_ids):
-        """Predict scores for items"""
         user_emb = self.user_embedding(user_id)
         item_embs = self.item_embedding(item_ids)
         scores = (user_emb * item_embs).sum(dim=1)
@@ -134,7 +114,6 @@ class BPRModel(nn.Module):
 
 
 class BPR:
-    """BPR trainer"""
 
     def __init__(self, num_users, num_items, embedding_dim, device, lr=1e-3):
         print(f"Initializing BPR (num_users={num_users}, num_items={num_items})...")
@@ -144,10 +123,8 @@ class BPR:
         self.num_items = num_items
 
     def train_epoch(self, train_data, batch_size=256):
-        """Train for one epoch"""
-        self.model.train()
 
-        # Create training samples
+        self.model.train()
         user_ids = []
         pos_items = []
         neg_items = []
@@ -163,14 +140,10 @@ class BPR:
                 while neg_item in items:
                     neg_item = np.random.randint(0, self.num_items)
                 neg_items.append(neg_item)
-
-        # Shuffle
         indices = np.random.permutation(len(user_ids))
         user_ids = [user_ids[i] for i in indices]
         pos_items = [pos_items[i] for i in indices]
         neg_items = [neg_items[i] for i in indices]
-
-        # Train in batches
         total_loss = 0
         num_batches = 0
 
@@ -180,8 +153,6 @@ class BPR:
             batch_neg = torch.LongTensor(neg_items[i:i+batch_size]).to(self.device)
 
             pos_scores, neg_scores = self.model(batch_users, batch_pos, batch_neg)
-
-            # BPR loss
             loss = -F.logsigmoid(pos_scores - neg_scores).mean()
 
             self.optimizer.zero_grad()
@@ -194,7 +165,6 @@ class BPR:
         return total_loss / num_batches
 
     def predict(self, user_id, user_history, k=20):
-        """Predict top-k items for user"""
         self.model.eval()
 
         with torch.no_grad():
@@ -202,25 +172,16 @@ class BPR:
             all_items = torch.LongTensor(list(range(self.num_items))).to(self.device)
 
             scores = self.model.predict(user_tensor, all_items).cpu().numpy()
-
-            # Remove items in history
             history_set = set(user_history)
             for item in history_set:
                 if item < len(scores):
                     scores[item] = -np.inf
-
-            # Get top-k
             top_k = np.argsort(scores)[-k:][::-1]
 
-        return top_k.tolist()
-
-
-# ============================================================================
-# 3. GRU4Rec
-# ============================================================================
+        return top_k.tolist(
 
 class GRU4RecModel(nn.Module):
-    """GRU-based sequential recommendation"""
+
 
     def __init__(self, num_items, embedding_dim, hidden_dim, num_layers, dropout=0.2):
         super().__init__()
@@ -244,8 +205,7 @@ class GRU4RecModel(nn.Module):
 
 
 class GRU4Rec:
-    """GRU4Rec trainer"""
-
+  
     def __init__(self, num_items, embedding_dim, hidden_dim, num_layers, device, lr=1e-3, dropout=0.2):
         print(f"Initializing GRU4Rec...")
         self.model = GRU4RecModel(num_items, embedding_dim, hidden_dim, num_layers, dropout).to(device)
@@ -254,10 +214,8 @@ class GRU4Rec:
         self.num_items = num_items
 
     def train_epoch(self, train_data, batch_size=256, max_seq_len=50):
-        """Train for one epoch"""
+     
         self.model.train()
-
-        # Prepare sequences
         sequences = []
         targets = []
 
@@ -271,13 +229,9 @@ class GRU4Rec:
                     seq = [0] * (max_seq_len - len(seq)) + seq
                 sequences.append(seq)
                 targets.append(items[i])
-
-        # Shuffle
         indices = np.random.permutation(len(sequences))
         sequences = [sequences[i] for i in indices]
         targets = [targets[i] for i in indices]
-
-        # Train
         total_loss = 0
         num_batches = 0
 
@@ -298,33 +252,25 @@ class GRU4Rec:
         return total_loss / num_batches
 
     def predict(self, user_history, k=20, max_seq_len=50):
-        """Predict top-k items"""
+     
         self.model.eval()
 
         with torch.no_grad():
-            # Prepare sequence
+          
             seq = user_history[-max_seq_len:]
             if len(seq) < max_seq_len:
                 seq = [0] * (max_seq_len - len(seq)) + seq
 
             seq_tensor = torch.LongTensor([seq]).to(self.device)
             logits = self.model(seq_tensor)[0].cpu().numpy()
-
-            # Remove items in history
             history_set = set(user_history)
             for item in history_set:
                 if item < len(logits):
                     logits[item] = -np.inf
-
-            # Get top-k
             top_k = np.argsort(logits)[-k:][::-1]
 
         return top_k.tolist()
 
-
-# ============================================================================
-# Evaluation
-# ============================================================================
 
 def evaluate_baseline(method, test_data, k=20):
     """Evaluate baseline method"""
@@ -338,31 +284,21 @@ def evaluate_baseline(method, test_data, k=20):
     for user_id, true_items in tqdm(test_data.items(), desc="Evaluating"):
         if len(true_items) == 0:
             continue
-
-        # Get user history (for sequential methods)
         if hasattr(method, 'predict'):
             if 'user_history' in method.predict.__code__.co_varnames:
-                # For methods that need history
+               
                 predictions = method.predict(user_history=true_items[:-1], k=k)
             else:
-                # For BPR
+             
                 predictions = method.predict(user_id=user_id, user_history=true_items[:-1], k=k)
         else:
             predictions = []
-
-        # Compute metrics
         true_set = set(true_items[-1:])  # Last item as ground truth
         pred_set = set(predictions[:k])
-
-        # Recall
         recall = len(true_set & pred_set) / len(true_set) if len(true_set) > 0 else 0
         recalls.append(recall)
-
-        # Precision
         precision = len(true_set & pred_set) / k if k > 0 else 0
         precisions.append(precision)
-
-        # NDCG
         dcg = 0
         for i, item in enumerate(predictions[:k]):
             if item in true_set:
@@ -381,33 +317,21 @@ def evaluate_baseline(method, test_data, k=20):
 
 
 def run_baseline(args, method_name):
-    """Run a single baseline method"""
-
-    print("\n" + "="*80)
-    print(f"BASELINE: {method_name.upper()}")
-    print("="*80)
-
-    # Load data
-    print("\nLoading data...")
+ 
     data = load_kgat_data(args.dataset, args.data_path)
     train_data = data['train_data']
     test_data = data['test_data']
 
     num_items = data['item_embeddings'].shape[0]
     num_users = len(train_data)
-
-    print(f"✓ Loaded {args.dataset}")
-    print(f"  - Train users: {num_users}")
-    print(f"  - Test users: {len(test_data)}")
-    print(f"  - Items: {num_items}")
-
-    # Initialize method
+    print(f"   Train users: {num_users}")
+    print(f"   Test users: {len(test_data)}")
+    print(f"   Items: {num_items}")
     if method_name == 'pop':
         method = PopRec(train_data)
 
     elif method_name == 'bpr':
         method = BPR(num_users, num_items, args.embedding_dim, args.device, args.learning_rate)
-        print("\nTraining BPR...")
         for epoch in range(args.epochs):
             loss = method.train_epoch(train_data, args.batch_size)
             print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss:.4f}")
@@ -415,7 +339,7 @@ def run_baseline(args, method_name):
     elif method_name == 'gru4rec':
         method = GRU4Rec(num_items, args.embedding_dim, args.hidden_dim,
                         args.num_layers, args.device, args.learning_rate, args.dropout)
-        print("\nTraining GRU4Rec...")
+       
         for epoch in range(args.epochs):
             loss = method.train_epoch(train_data, args.batch_size)
             print(f"Epoch {epoch+1}/{args.epochs}, Loss: {loss:.4f}")
@@ -423,18 +347,11 @@ def run_baseline(args, method_name):
     else:
         raise ValueError(f"Unknown method: {method_name}")
 
-    # Evaluate
     results = evaluate_baseline(method, test_data, k=args.k)
-
-    print("\n" + "="*80)
-    print("RESULTS")
-    print("="*80)
     print(f"Recall@{args.k}: {results[f'recall@{args.k}']:.4f}")
     print(f"NDCG@{args.k}: {results[f'ndcg@{args.k}']:.4f}")
     print(f"Precision@{args.k}: {results[f'precision@{args.k}']:.4f}")
     print("="*80)
-
-    # Save results
     os.makedirs(args.output_dir, exist_ok=True)
     output_file = os.path.join(args.output_dir, f'{method_name}_{args.dataset}.json')
     with open(output_file, 'w') as f:
@@ -444,21 +361,17 @@ def run_baseline(args, method_name):
             'results': results
         }, f, indent=2)
 
-    print(f"\n✓ Results saved to: {output_file}")
+    print(f"\n Results saved to: {output_file}")
 
     return results
 
 
 def main():
     args = get_args()
-
-    # Set random seeds
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-
-    # Run baselines
     if args.method == 'all':
         methods = ['pop', 'bpr', 'gru4rec']
         all_results = {}
@@ -467,10 +380,6 @@ def main():
             results = run_baseline(args, method)
             all_results[method] = results
 
-        # Print summary
-        print("\n" + "="*80)
-        print("SUMMARY OF ALL BASELINES")
-        print("="*80)
         for method, results in all_results.items():
             print(f"\n{method.upper()}:")
             print(f"  Recall@{args.k}: {results[f'recall@{args.k}']:.4f}")
