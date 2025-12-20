@@ -10,37 +10,24 @@ from collections import defaultdict
 
 
 def load_kgat_data(dataset_name: str, data_path: str = './data/') -> Dict:
-   
     dataset_path = os.path.join(data_path, dataset_name)
-    
-    
     required_files = ['train.txt', 'test.txt']
     for file in required_files:
         if not os.path.exists(os.path.join(dataset_path, file)):
             raise FileNotFoundError(
-                f"[ERROR] Missing {file}!\n"
+                f"Missing {file}!\n"
                 f"Please download KGAT data from:\n"
                 f"https://github.com/xiangwang1223/knowledge_graph_attention_network/tree/master/Data\n"
                 f"And extract to: {dataset_path}/"
             )
-    
-   
-    print("1. Loading user-item interactions...")
     train_data = load_rating_file(os.path.join(dataset_path, 'train.txt'))
     test_data = load_rating_file(os.path.join(dataset_path, 'test.txt'))
-    
-    print(f"   [OK] Train users: {len(train_data)}")
-    print(f"   [OK] Test users: {len(test_data)}")
-
     n_users = max(max(train_data.keys()), max(test_data.keys())) + 1
     n_items = max(
         max([max(items) for items in train_data.values()]),
         max([max(items) for items in test_data.values()])
     ) + 1
-
-    print("\n2. Loading Knowledge Graph...")
     kg_file = os.path.join(dataset_path, 'kg_final.txt')
-
     if os.path.isfile(kg_file):
         print(f"   Loading from {kg_file}...")
         kg_data = load_kg(kg_file)
@@ -48,49 +35,30 @@ def load_kgat_data(dataset_name: str, data_path: str = './data/') -> Dict:
         print(f"   [OK] Relations: {kg_data['n_relations']}")
         print(f"   [OK] Triples: {len(kg_data['triples'])}")
     else:
-        print("   [WARN] kg_final.txt not found or is not a file")
-        print("   Creating synthetic KG data based on item interactions...")
+        print(" kg_final.txt not found or is not a file")
         kg_data = create_synthetic_kg(train_data, n_items)
         print(f"   [OK] Entities: {kg_data['n_entities']} (synthetic)")
         print(f"   [OK] Relations: {kg_data['n_relations']} (synthetic)")
         print(f"   [OK] Triples: {len(kg_data['triples'])} (synthetic)")
-
-    print(f"\n3. Dataset Statistics:")
-    print(f"   [OK] Users: {n_users}")
-    print(f"   [OK] Items: {n_items}")
- 
-    print(f"\n4. Initializing embeddings...")
-
     item_emb_file = os.path.join(dataset_path, 'item_embeddings.npy')
     kg_emb_file = os.path.join(dataset_path, 'kg_embeddings.npy')
 
     if os.path.exists(item_emb_file) and os.path.exists(kg_emb_file):
-        print("   Loading cached embeddings...")
         item_embeddings = np.load(item_emb_file)
         kg_embeddings = np.load(kg_emb_file)
-        print(f"   [OK] Loaded item embeddings: {item_embeddings.shape}")
-        print(f"   [OK] Loaded KG embeddings: {kg_embeddings.shape}")
     else:
-        print("   Initializing new embeddings...")
-
         item_embeddings = xavier_init(n_items, 64)
-
         if len(kg_data['triples']) > 0:
             print("   Training TransE embeddings on KG...")
             kg_embeddings = train_transe_embeddings(
                 kg_data, embedding_dim=128, epochs=50, lr=0.01
             )
         else:
-            print("   Using Xavier initialization for KG embeddings...")
+            print("Using Xavier initialization for KG embeddings...")
             kg_embeddings = xavier_init(kg_data['n_entities'], 128)
 
         np.save(item_emb_file, item_embeddings)
         np.save(kg_emb_file, kg_embeddings)
-        print(f"   [OK] Saved to {dataset_path}/")
-    
-   
-    print(f" Dataset loaded successfully!")
-   
     return {
         'train_data': train_data,
         'test_data': test_data,
@@ -104,7 +72,6 @@ def load_kgat_data(dataset_name: str, data_path: str = './data/') -> Dict:
 
 def load_rating_file(file_path: str) -> Dict[int, List[int]]:
    
-    
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
     
@@ -121,11 +88,7 @@ def load_rating_file(file_path: str) -> Dict[int, List[int]]:
             user_dict[user_id] = item_ids
     
     return user_dict
-
-
 def load_kg(file_path: str) -> Dict:
-   
-    
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
     
@@ -164,9 +127,6 @@ def xavier_init(n_items: int, dim: int) -> np.ndarray:
 
 def create_user_sequences(user_dict: Dict[int, List[int]],
                           min_seq_len: int = 5) -> Dict[int, List[int]]:
-    """
-    
-    """
     sequences = {}
 
     for user_id, items in user_dict.items():
@@ -178,25 +138,7 @@ def create_user_sequences(user_dict: Dict[int, List[int]],
 
 def create_synthetic_kg(train_data: Dict[int, List[int]],
                        n_items: int) -> Dict:
-    """
-    
-
-    
-    - "similar_to"
-    - TF-IDF
-
-    Args:
-        train_data: 
-        n_items: 
-
-    Returns:
-        kg_data: 
-    """
     from collections import Counter
-
-    print("   Building co-occurrence graph...")
-
-    
     cooccurrence = defaultdict(Counter)
 
     for user_id, items in train_data.items():
@@ -245,23 +187,6 @@ def create_synthetic_kg(train_data: Dict[int, List[int]],
 def train_transe_embeddings(kg_data: Dict, embedding_dim: int = 128,
                             epochs: int = 50, lr: float = 0.01,
                             margin: float = 1.0, batch_size: int = 1024) -> np.ndarray:
-    """
-    TransE
-
-    TransEh + r ≈ t
-    max(0, d(h+r, t) - d(h'+r, t') + margin)
-
-    Args:
-        kg_data: 
-        embedding_dim: 
-        epochs: 
-        lr: 
-        margin: 
-        batch_size: 
-
-    Returns:
-        entity_embeddings:  [n_entities, embedding_dim]
-    """
     import torch
     import torch.nn as nn
     import torch.optim as optim
@@ -365,16 +290,11 @@ def quick_check_data(data_path: str = './data/'):
             else:
                 print(f"   Missing: {file}")
                 all_ok = False
-    
-    print("\n" + "="*60)
     if all_ok:
-        print("[OK] All datasets are ready!")
     else:
-        print("[ERROR] Some datasets are missing.")
+        print("Some datasets are missing.")
         print("\nPlease download from:")
         print("https://github.com/xiangwang1223/knowledge_graph_attention_network/tree/master/Data")
-    print("="*60 + "\n")
-    
     return all_ok
 
 
@@ -382,7 +302,6 @@ if __name__ == '__main__':
     quick_check_data('./data/')
     try:
         data = load_kgat_data('amazon-book', './data/')
-        
         print("\nData loaded successfully!")
         print(f"Item embeddings shape: {data['item_embeddings'].shape}")
         print(f"KG embeddings shape: {data['kg_embeddings'].shape}")
