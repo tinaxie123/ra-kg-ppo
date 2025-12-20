@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python scripts/prepare_data.py:*)",
-      "Bash(python clean_comments.py:*)"
-    ]
-  }
-}
