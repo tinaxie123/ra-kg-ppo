@@ -22,7 +22,6 @@ class RAKGPPO:
                  env: RecommendationEnv,
                  policy_net: RAPolicyValueNet,
                  candidate_generator: CandidateGenerator,
-                 # PPO
                  learning_rate: float = 3e-4,
                  gamma: float = 0.99,
                  gae_lambda: float = 0.95,
@@ -31,19 +30,15 @@ class RAKGPPO:
                  entropy_coef: float = 0.01,
                  value_coef: float = 0.5,
                  max_grad_norm: float = 0.5,
-                 # 
                  n_steps: int = 2048,
                  batch_size: int = 64,
                  n_epochs: int = 10,
-                 # 
                  device: str = 'cpu'):
         
         self.env = env
         self.policy_net = policy_net.to(device)
         self.candidate_generator = candidate_generator
         self.device = device
-
-        # PPO
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.clip_range = clip_range
@@ -110,7 +105,7 @@ class RAKGPPO:
 
             self.rollout_buffer.add(
                 observation=obs,
-                action=action_idx.item(),  # 
+                action=action_idx.item(),  
                 reward=reward,
                 value=value.item(),
                 log_prob=log_prob.item(),
@@ -119,13 +114,10 @@ class RAKGPPO:
                 candidate_ids=candidate_ids[0],
                 candidate_embeddings=candidate_embeddings[0]
             )
-
             obs = next_obs
-
             if done:
                 self.episode_rewards.append(episode_reward)
                 self.episode_lengths.append(episode_length)
-
                 episode_reward = 0
                 episode_length = 0
                 obs = self.env.reset()
@@ -140,7 +132,6 @@ class RAKGPPO:
             gamma=self.gamma,
             gae_lambda=self.gae_lambda
         )
-
         return True
 
     def train(self) -> Dict[str, float]:
@@ -192,8 +183,6 @@ class RAKGPPO:
                     self.value_coef * value_loss +
                     self.entropy_coef * entropy_loss
                 )
-
-                # 
                 self.optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(
@@ -202,13 +191,9 @@ class RAKGPPO:
                     self.max_grad_norm
                 )
                 self.optimizer.step()
-
-                # 
                 policy_losses.append(policy_loss.item())
                 value_losses.append(value_loss.item())
                 entropy_losses.append(entropy_loss.item())
-
-                # clip fraction
                 with torch.no_grad():
                     clip_fraction = torch.mean(
                         (torch.abs(ratio - 1) > self.clip_range).float()
@@ -227,13 +212,8 @@ class RAKGPPO:
               log_interval: int = 1,
               eval_env: Optional[RecommendationEnv] = None,
               eval_freq: int = 10) -> 'RAKGPPO':
-
     
         num_updates = total_timesteps // self.n_steps
-
-        print(f"\n{'='*60}")
-        print(f"Starting RA-KG-PPO Training")
-        print(f"{'='*60}")
         print(f"Total timesteps: {total_timesteps}")
         print(f"Number of updates: {num_updates}")
         print(f"Steps per update: {self.n_steps}")
@@ -256,16 +236,9 @@ class RAKGPPO:
                 print(f"  Value loss: {train_stats['value_loss']:.4f}")
                 print(f"  Entropy: {-train_stats['entropy_loss']:.4f}")
                 print(f"  Clip fraction: {train_stats['clip_fraction']:.4f}")
-
-   
             if eval_env is not None and update % eval_freq == 0:
                 eval_reward = self.evaluate(eval_env, n_episodes=10)
                 print(f"  Evaluation reward: {eval_reward:.4f}")
-
-        print(f"\n{'='*60}")
-        print("Training completed!")
-        print(f"{'='*60}\n")
-
         return self
 
     def evaluate(self, env: RecommendationEnv, n_episodes: int = 10) -> float:
@@ -291,8 +264,6 @@ class RAKGPPO:
                     logits = self.policy_net.actor.compute_action_logits(
                         query_vector, candidate_embeddings
                     )
-
-                    # 
                     action_idx = torch.argmax(logits, dim=-1)
                     action = candidate_ids[0, action_idx.item()].item()
 
