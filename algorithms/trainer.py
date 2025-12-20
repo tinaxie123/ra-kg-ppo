@@ -8,8 +8,6 @@ import torch.optim as optim
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 from tqdm import tqdm
-
-# 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.policy_net import RAPolicyValueNet
@@ -19,16 +17,7 @@ from algorithms.rollout_buffer import RolloutBuffer
 
 
 class RAKGPPO:
-    """
-    RA-KG-PPO PyTorch
-
-    
-    1.  + 
-    2. 
-    3. PPO
-    4. 
-    """
-
+  
     def __init__(self,
                  env: RecommendationEnv,
                  policy_net: RAPolicyValueNet,
@@ -48,24 +37,7 @@ class RAKGPPO:
                  n_epochs: int = 10,
                  # 
                  device: str = 'cpu'):
-        """
-        Args:
-            env: 
-            policy_net: -
-            candidate_generator: 
-            learning_rate: 
-            gamma: 
-            gae_lambda: GAE lambda
-            clip_range: PPO
-            clip_range_vf: 
-            entropy_coef: 
-            value_coef: 
-            max_grad_norm: 
-            n_steps: 
-            batch_size: 
-            n_epochs: epoch
-            device: 
-        """
+        
         self.env = env
         self.policy_net = policy_net.to(device)
         self.candidate_generator = candidate_generator
@@ -79,48 +51,32 @@ class RAKGPPO:
         self.entropy_coef = entropy_coef
         self.value_coef = value_coef
         self.max_grad_norm = max_grad_norm
-
-        # 
         self.n_steps = n_steps
         self.batch_size = batch_size
         self.n_epochs = n_epochs
-
-        # 
         self.optimizer = optim.Adam(
             list(self.policy_net.parameters()) +
             list(self.candidate_generator.parameters()),
             lr=learning_rate
         )
-
-        # 
         self.rollout_buffer = RolloutBuffer(
             buffer_size=n_steps,
             device=device
         )
-
-        # 
         self.num_timesteps = 0
         self.episode_rewards = []
         self.episode_lengths = []
 
     def collect_rollouts(self) -> bool:
-        """
-        
-
-        Returns:
-            
-        """
+     
         self.policy_net.eval()
         self.rollout_buffer.reset()
 
         episode_reward = 0
         episode_length = 0
-
-        # 
         obs = self.env.reset()
 
         for step in range(self.n_steps):
-            # 
             item_embs = torch.FloatTensor(
                 obs['item_embeddings']
             ).unsqueeze(0).to(self.device)
@@ -128,16 +84,12 @@ class RAKGPPO:
             lengths = torch.LongTensor([obs['length']]).to(self.device)
 
             with torch.no_grad():
-                # 
                 hidden_state = self.policy_net.get_hidden_state(
                     item_embs, lengths
                 )
 
-                # 
                 query_vector, candidate_ids, candidate_embeddings = \
                     self.candidate_generator(hidden_state)
-
-                # 
                 logits = self.policy_net.actor.compute_action_logits(
                     query_vector, candidate_embeddings
                 )
@@ -145,21 +97,17 @@ class RAKGPPO:
                 dist = torch.distributions.Categorical(logits=logits)
                 action_idx = dist.sample()
                 log_prob = dist.log_prob(action_idx)
-
-                # 
                 value = self.policy_net.critic(item_embs, lengths).squeeze(-1)
 
-            # ID
+     
             action = candidate_ids[0, action_idx.item()].item()
 
-            # 
             next_obs, reward, done, info = self.env.step(action)
 
             episode_reward += reward
             episode_length += 1
             self.num_timesteps += 1
 
-            # buffer
             self.rollout_buffer.add(
                 observation=obs,
                 action=action_idx.item(),  # 
@@ -181,16 +129,12 @@ class RAKGPPO:
                 episode_reward = 0
                 episode_length = 0
                 obs = self.env.reset()
-
-        # 
         with torch.no_grad():
             item_embs = torch.FloatTensor(
                 obs['item_embeddings']
             ).unsqueeze(0).to(self.device)
             lengths = torch.LongTensor([obs['length']]).to(self.device)
             last_value = self.policy_net.critic(item_embs, lengths).squeeze(-1).item()
-
-        # 
         self.rollout_buffer.compute_returns_and_advantages(
             last_value=last_value,
             gamma=self.gamma,
@@ -200,15 +144,8 @@ class RAKGPPO:
         return True
 
     def train(self) -> Dict[str, float]:
-        """
-        epoch
-
-        Returns:
-            
-        """
+       
         self.policy_net.train()
-
-        # 
         policy_losses = []
         value_losses = []
         entropy_losses = []
@@ -216,7 +153,6 @@ class RAKGPPO:
 
         for epoch in range(self.n_epochs):
             for batch in self.rollout_buffer.get(self.batch_size):
-                # 
                 item_embs = batch['item_embeddings']
                 lengths = batch['lengths']
                 actions = batch['actions']
@@ -225,24 +161,17 @@ class RAKGPPO:
                 returns = batch['returns']
                 query_vecs = batch['query_vectors']
                 cand_embs = batch['candidate_embeddings']
-
-                # 
                 advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
-                # 
                 log_probs, values, entropy = self.policy_net.evaluate_actions(
                     item_embs, query_vecs, cand_embs, actions, lengths
                 )
 
-                # PPO
                 ratio = torch.exp(log_probs - old_log_probs)
                 policy_loss_1 = advantages * ratio
                 policy_loss_2 = advantages * torch.clamp(
                     ratio, 1 - self.clip_range, 1 + self.clip_range
                 )
                 policy_loss = -torch.min(policy_loss_1, policy_loss_2).mean()
-
-                # 
                 if self.clip_range_vf is not None:
                     values_pred = values
                     values_pred_clipped = torch.clamp(
@@ -256,10 +185,8 @@ class RAKGPPO:
                 else:
                     value_loss = 0.5 * (returns - values).pow(2).mean()
 
-                # 
                 entropy_loss = -entropy.mean()
 
-                # 
                 loss = (
                     policy_loss +
                     self.value_coef * value_loss +
@@ -300,18 +227,8 @@ class RAKGPPO:
               log_interval: int = 1,
               eval_env: Optional[RecommendationEnv] = None,
               eval_freq: int = 10) -> 'RAKGPPO':
-        """
-        
 
-        Args:
-            total_timesteps: 
-            log_interval: 
-            eval_env: 
-            eval_freq: 
-
-        Returns:
-            self
-        """
+    
         num_updates = total_timesteps // self.n_steps
 
         print(f"\n{'='*60}")
@@ -322,16 +239,10 @@ class RAKGPPO:
         print(f"Steps per update: {self.n_steps}")
         print(f"Batch size: {self.batch_size}")
         print(f"Epochs per update: {self.n_epochs}")
-        print(f"{'='*60}\n")
 
         for update in tqdm(range(1, num_updates + 1), desc="Training"):
-            # 
             self.collect_rollouts()
-
-            # 
             train_stats = self.train()
-
-            # 
             if update % log_interval == 0:
                 mean_reward = np.mean(self.episode_rewards[-100:]) if self.episode_rewards else 0
                 mean_length = np.mean(self.episode_lengths[-100:]) if self.episode_lengths else 0
@@ -346,7 +257,7 @@ class RAKGPPO:
                 print(f"  Entropy: {-train_stats['entropy_loss']:.4f}")
                 print(f"  Clip fraction: {train_stats['clip_fraction']:.4f}")
 
-            # 
+   
             if eval_env is not None and update % eval_freq == 0:
                 eval_reward = self.evaluate(eval_env, n_episodes=10)
                 print(f"  Evaluation reward: {eval_reward:.4f}")
@@ -358,16 +269,6 @@ class RAKGPPO:
         return self
 
     def evaluate(self, env: RecommendationEnv, n_episodes: int = 10) -> float:
-        """
-        
-
-        Args:
-            env: 
-            n_episodes: 
-
-        Returns:
-            
-        """
         self.policy_net.eval()
         episode_rewards = []
 
@@ -403,7 +304,6 @@ class RAKGPPO:
         return np.mean(episode_rewards)
 
     def save(self, path: str):
-        """"""
         torch.save({
             'policy_net': self.policy_net.state_dict(),
             'candidate_generator': self.candidate_generator.state_dict(),
@@ -415,7 +315,6 @@ class RAKGPPO:
         print(f"Model saved to {path}")
 
     def load(self, path: str):
-        """"""
         checkpoint = torch.load(path, map_location=self.device)
         self.policy_net.load_state_dict(checkpoint['policy_net'])
         self.candidate_generator.load_state_dict(checkpoint['candidate_generator'])

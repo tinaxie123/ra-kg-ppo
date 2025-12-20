@@ -1,40 +1,16 @@
-"""
- (Rollout Buffer)
-
-PPO
-"""
-
 import numpy as np
 import torch
 from typing import Dict, List, Optional, Generator, Tuple
 
 
 class RolloutBuffer:
-    """
-    PPO
-
-    
-    -  (item_embeddings, kg_embeddings, lengths)
-    -  (actions)
-    -  (rewards)
-    -  (values)
-    -  (log_probs)
-    -  (dones)
-    -  (query_vectors, candidate_ids, candidate_embeddings)
-    """
 
     def __init__(self, buffer_size: int, device: str = 'cpu'):
-        """
-        Args:
-            buffer_size: 
-            device: 
-        """
+      
         self.buffer_size = buffer_size
         self.device = device
         self.pos = 0
         self.full = False
-
-        # 
         self.observations = {
             'item_embeddings': [],
             'kg_embeddings': [],
@@ -45,13 +21,10 @@ class RolloutBuffer:
         self.values = []
         self.log_probs = []
         self.dones = []
-
-        # 
         self.query_vectors = []
         self.candidate_ids = []
         self.candidate_embeddings = []
 
-        # GAE
         self.advantages = None
         self.returns = None
 
@@ -65,25 +38,18 @@ class RolloutBuffer:
             query_vector: torch.Tensor,
             candidate_ids: torch.Tensor,
             candidate_embeddings: torch.Tensor):
-        """
-        
-        """
+       
         if self.full:
             return
 
-        # 
         self.observations['item_embeddings'].append(observation['item_embeddings'])
         self.observations['kg_embeddings'].append(observation['kg_embeddings'])
         self.observations['lengths'].append(observation['length'])
-
-        # 
         self.actions.append(action)
         self.rewards.append(reward)
         self.values.append(value)
         self.log_probs.append(log_prob)
         self.dones.append(done)
-
-        # 
         self.query_vectors.append(query_vector.cpu())
         self.candidate_ids.append(candidate_ids.cpu())
         self.candidate_embeddings.append(candidate_embeddings.cpu())
@@ -96,26 +62,13 @@ class RolloutBuffer:
                                        last_value: float,
                                        gamma: float = 0.99,
                                        gae_lambda: float = 0.95):
-        """
-        GAE
-
-        Args:
-            last_value: 
-            gamma: 
-            gae_lambda: GAE lambda
-        """
+     
         n_steps = len(self.rewards)
-
-        # 
         advantages = np.zeros(n_steps, dtype=np.float32)
         last_gae_lam = 0
-
-        # numpy
         values = np.array(self.values)
         rewards = np.array(self.rewards)
         dones = np.array(self.dones)
-
-        # GAE
         for step in reversed(range(n_steps)):
             if step == n_steps - 1:
                 next_non_terminal = 1.0 - dones[step]
@@ -124,30 +77,22 @@ class RolloutBuffer:
                 next_non_terminal = 1.0 - dones[step]
                 next_value = values[step + 1]
 
-            # TD
+       
             delta = rewards[step] + gamma * next_value * next_non_terminal - values[step]
 
-            # GAE
+          
             advantages[step] = last_gae_lam = (
                 delta + gamma * gae_lambda * next_non_terminal * last_gae_lam
             )
 
-        #  =  + 
+   
         returns = advantages + values
 
         self.advantages = advantages
         self.returns = returns
 
     def get(self, batch_size: Optional[int] = None) -> Generator[Dict, None, None]:
-        """
-        
-
-        Args:
-            batch_size: None
-
-        Yields:
-            batch: 
-        """
+   
         assert self.full or self.pos > 0, "Buffer is empty"
 
         n_steps = self.pos
@@ -155,11 +100,7 @@ class RolloutBuffer:
 
         if batch_size is None:
             batch_size = n_steps
-
-        # 
         np.random.shuffle(indices)
-
-        # tensor
         item_embs = torch.FloatTensor(
             np.array(self.observations['item_embeddings'])
         ).to(self.device)
@@ -171,18 +112,13 @@ class RolloutBuffer:
         lengths = torch.LongTensor(
             np.array(self.observations['lengths'])
         ).to(self.device)
-
         actions = torch.LongTensor(np.array(self.actions)).to(self.device)
         old_log_probs = torch.FloatTensor(np.array(self.log_probs)).to(self.device)
         advantages = torch.FloatTensor(self.advantages).to(self.device)
         returns = torch.FloatTensor(self.returns).to(self.device)
-
-        # 
         query_vecs = torch.stack(self.query_vectors).to(self.device)
         cand_ids = torch.stack(self.candidate_ids).to(self.device)
         cand_embs = torch.stack(self.candidate_embeddings).to(self.device)
-
-        # 
         start_idx = 0
         while start_idx < n_steps:
             batch_indices = indices[start_idx:start_idx + batch_size]
@@ -203,7 +139,7 @@ class RolloutBuffer:
             start_idx += batch_size
 
     def reset(self):
-        """"""
+
         self.observations = {
             'item_embeddings': [],
             'kg_embeddings': [],
@@ -226,13 +162,10 @@ class RolloutBuffer:
         return self.pos
 
 
-if __name__ == '__main__':
-    # 
+if __name__ == '__main__': 
     print("Testing RolloutBuffer...")
 
     buffer = RolloutBuffer(buffer_size=10)
-
-    # 
     for i in range(10):
         obs = {
             'item_embeddings': np.random.randn(50, 64),
@@ -254,12 +187,9 @@ if __name__ == '__main__':
 
     print(f"[OK] Buffer size: {len(buffer)}")
 
-    # 
     buffer.compute_returns_and_advantages(last_value=0.5)
     print(f"[OK] Advantages computed: {buffer.advantages.shape}")
     print(f"[OK] Returns computed: {buffer.returns.shape}")
-
-    # 
     batch_count = 0
     for batch in buffer.get(batch_size=4):
         batch_count += 1
