@@ -34,8 +34,6 @@ from utils.metrics import evaluate_policy
 
 def get_args():
     parser = argparse.ArgumentParser(description='Ablation Study for RA-KG-PPO')
-
-    # Experiment settings
     parser.add_argument('--variant', type=str, required=True,
                         choices=['full', 'no-kg', 'no-lsh', 'no-ppo'],
                         help='Ablation variant to run')
@@ -44,14 +42,10 @@ def get_args():
     parser.add_argument('--data-path', type=str, default='./data/')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
-
-    # Model hyperparameters
     parser.add_argument('--item-emb-dim', type=int, default=128)
     parser.add_argument('--kg-emb-dim', type=int, default=256)
     parser.add_argument('--hidden-dim', type=int, default=256)
     parser.add_argument('--num-layers', type=int, default=3)
-
-    # Training hyperparameters
     parser.add_argument('--total-timesteps', type=int, default=100000)
     parser.add_argument('--n-steps', type=int, default=4096)
     parser.add_argument('--batch-size', type=int, default=512)
@@ -60,13 +54,9 @@ def get_args():
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--gae-lambda', type=float, default=0.95)
     parser.add_argument('--clip-range', type=float, default=0.2)
-
-    # Retrieval hyperparameters
     parser.add_argument('--candidate-size', type=int, default=200)
     parser.add_argument('--num-hash-bits', type=int, default=10)
     parser.add_argument('--num-tables', type=int, default=8)
-
-    # Output
     parser.add_argument('--output-dir', type=str, default='./ablation_results/')
     parser.add_argument('--eval-freq', type=int, default=10000)
 
@@ -74,22 +64,15 @@ def get_args():
 
 
 class NoKGVariant:
-    """Variant without knowledge graph embeddings"""
-
     def __init__(self, args, data):
         print(f"\n==> Initializing No-KG Variant")
         print("    Using only item embeddings (no KG information)")
-
-        # Use only item embeddings, set KG embeddings to zeros
         self.kg_emb_dim = 0
         data['kg_embeddings'] = torch.zeros_like(data['kg_embeddings'])
 
 
 class NoLSHVariant:
-    """Variant with random sampling instead of LSH retrieval"""
-
     def __init__(self, args, candidate_gen, all_item_ids):
-        print(f"\n==> Initializing No-LSH Variant")
         print("    Using random sampling instead of LSH retrieval")
 
         self.candidate_gen = candidate_gen
@@ -97,7 +80,6 @@ class NoLSHVariant:
         self.candidate_size = args.candidate_size
 
     def random_candidates(self, hidden):
-        """Replace LSH with random sampling"""
         batch_size = hidden.shape[0]
         # Random sample candidates
         indices = np.random.choice(len(self.all_item_ids),
@@ -111,7 +93,6 @@ class NoLSHVariant:
 
 
 class NoPPOVariant:
-    """Variant using simple REINFORCE instead of PPO"""
 
     def __init__(self, args):
         print(f"\n==> Initializing No-PPO Variant")
@@ -121,9 +102,6 @@ class NoPPOVariant:
         self.gamma = args.gamma
 
     def simple_pg_update(self, policy_net, buffer, optimizer):
-        """Simple policy gradient update (REINFORCE)"""
-
-        # Compute returns
         returns = []
         G = 0
         for r in reversed(buffer.rewards):
@@ -131,16 +109,10 @@ class NoPPOVariant:
             returns.insert(0, G)
 
         returns = torch.tensor(returns, dtype=torch.float32, device=buffer.device)
-
-        # Normalize returns
         if len(returns) > 1:
             returns = (returns - returns.mean()) / (returns.std() + 1e-8)
-
-        # Policy gradient loss
         log_probs = torch.stack(buffer.log_probs)
         policy_loss = -(log_probs * returns).mean()
-
-        # Update
         optimizer.zero_grad()
         policy_loss.backward()
         torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 0.5)
@@ -150,20 +122,11 @@ class NoPPOVariant:
 
 
 def run_ablation_experiment(args):
-    """Run a single ablation experiment"""
-
-    # Set random seeds
+ 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-
-    print("\n" + "="*80)
-    print(f"ABLATION STUDY: {args.variant.upper()}")
-    print("="*80)
-
-    # Load data
-    print("\n[1/5] Loading data...")
     data = load_kgat_data(args.dataset, args.data_path)
 
     item_embeddings = data['item_embeddings'].to(args.device)
@@ -171,18 +134,9 @@ def run_ablation_experiment(args):
     train_data = data['train_data']
     test_data = data['test_data']
 
-    print(f"✓ Loaded {args.dataset}")
-    print(f"  - Train users: {len(train_data)}")
-    print(f"  - Test users: {len(test_data)}")
-    print(f"  - Items: {item_embeddings.shape[0]}")
-
-    # Apply variant modifications
     if args.variant == 'no-kg':
         variant = NoKGVariant(args, data)
         kg_embeddings = data['kg_embeddings'].to(args.device)
-
-    # Create environment
-    print("\n[2/5] Creating environment...")
     env = RecommendationEnv(
         user_sequences=train_data,
         item_embeddings=item_embeddings,
@@ -190,10 +144,6 @@ def run_ablation_experiment(args):
         max_seq_len=50,
         device=args.device
     )
-    print("✓ Environment created")
-
-    # Build models
-    print("\n[3/5] Building models...")
     policy_net = RAPolicyValueNet(
         item_embedding_dim=args.item_emb_dim,
         hidden_dim=args.hidden_dim,
@@ -209,28 +159,18 @@ def run_ablation_experiment(args):
         num_tables=args.num_tables,
         candidate_size=args.candidate_size
     ).to(args.device)
-
-    # Build LSH index
     candidate_gen.build_index(kg_embeddings)
-    print("✓ Models built")
-
-    # Apply No-LSH variant if needed
     if args.variant == 'no-lsh':
         all_item_ids = list(range(item_embeddings.shape[0]))
         lsh_variant = NoLSHVariant(args, candidate_gen, all_item_ids)
-
-    # Optimizer
     optimizer = torch.optim.Adam(
         list(policy_net.parameters()) + list(candidate_gen.parameters()),
         lr=args.learning_rate
     )
-
-    # Trainer
-    print("\n[4/5] Initializing trainer...")
     if args.variant == 'no-ppo':
         trainer_variant = NoPPOVariant(args)
         trainer = None
-        print("✓ Using REINFORCE (simple PG)")
+        print("Using REINFORCE (simple PG)")
     else:
         trainer = PPOTrainer(
             policy=policy_net,
@@ -245,12 +185,6 @@ def run_ablation_experiment(args):
             clip_range=args.clip_range,
             device=args.device
         )
-        print("✓ Using PPO trainer")
-
-    # Training
-    print("\n[5/5] Training...")
-    print("="*80)
-
     results = {
         'variant': args.variant,
         'args': vars(args),
@@ -269,14 +203,12 @@ def run_ablation_experiment(args):
     pbar = tqdm(total=args.total_timesteps, desc="Training")
 
     while timesteps < args.total_timesteps:
-        # Collect experience
         obs = env.reset()
         episode_reward = 0
         done = False
         steps = 0
 
         while not done and steps < 50:
-            # Get action
             with torch.no_grad():
                 item_emb = torch.FloatTensor(obs['item_embeddings']).unsqueeze(0).to(args.device)
                 length = torch.tensor([obs['length']]).to(args.device)
@@ -296,11 +228,7 @@ def run_ablation_experiment(args):
                 log_prob = dist.log_prob(action_idx)
 
                 action = cand_ids[0, action_idx].item()
-
-            # Step
             next_obs, reward, done, info = env.step(action)
-
-            # Store
             buffer.add(
                 obs=obs,
                 action=action,
@@ -315,8 +243,6 @@ def run_ablation_experiment(args):
             timesteps += 1
             steps += 1
             pbar.update(1)
-
-            # Update policy
             if buffer.size() >= args.n_steps or done:
                 if args.variant == 'no-ppo':
                     loss_info = trainer_variant.simple_pg_update(policy_net, buffer, optimizer)
@@ -331,8 +257,6 @@ def run_ablation_experiment(args):
             'timesteps': timesteps,
             'reward': episode_reward
         })
-
-        # Evaluation
         if timesteps % args.eval_freq == 0 or timesteps >= args.total_timesteps:
             print(f"\n\nEvaluation at {timesteps} timesteps...")
             eval_metrics = evaluate_policy(
@@ -350,36 +274,25 @@ def run_ablation_experiment(args):
             print(f"NDCG@20: {eval_metrics['ndcg@20']:.4f}")
 
     pbar.close()
-
-    # Save results
     os.makedirs(args.output_dir, exist_ok=True)
     output_file = os.path.join(args.output_dir, f'{args.variant}_{args.dataset}.json')
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2)
 
-    print("\n" + "="*80)
-    print(f"✓ Ablation experiment completed: {args.variant}")
-    print(f"✓ Results saved to: {output_file}")
-    print("="*80)
-
+    print(f"Ablation experiment completed: {args.variant}")
+    print(f"Results saved to: {output_file}")
     return results
 
 
 def main():
     args = get_args()
     results = run_ablation_experiment(args)
-
-    # Print final summary
-    print("\n" + "="*80)
-    print("FINAL RESULTS")
-    print("="*80)
     if results['eval_history']:
         final_eval = results['eval_history'][-1]
         print(f"Variant: {args.variant}")
         print(f"Recall@20: {final_eval['recall@20']:.4f}")
         print(f"NDCG@20: {final_eval['ndcg@20']:.4f}")
         print(f"Precision@20: {final_eval['precision@20']:.4f}")
-    print("="*80)
 
 
 if __name__ == '__main__':
