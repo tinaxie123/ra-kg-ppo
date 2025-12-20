@@ -55,19 +55,19 @@ python scripts/prepare_data.py --dataset amazon-book
 
 ### Training
 
-**Quick Test** (2 minutes):
+**Quick Test** (10 minutes on CPU):
 ```bash
-python train_local_simplified.py --total-timesteps 1024
+python train_5090_optimized.py --dataset amazon-book --total-timesteps 10000
 ```
 
-**Full Training** (15 minutes on CPU):
-```bash
-python train_local_simplified.py --total-timesteps 10000
-```
-
-**Large-Scale Training** (4 hours on RTX 5090):
+**Full Training** (recommended for GPU):
 ```bash
 python train_5090_optimized.py --dataset amazon-book --total-timesteps 1000000
+```
+
+**Basic Training** (lightweight version):
+```bash
+python train.py --dataset amazon-book
 ```
 
 ---
@@ -92,8 +92,8 @@ ra_kg_ppo/
 ├── scripts/            # Helper scripts
 │   └── prepare_data.py
 ├── experiments/        # Experiment scripts
-├── train_local_simplified.py   # Local training (CPU-friendly)
-├── train_5090_optimized.py     # Full training (GPU-optimized)
+├── train.py            # Basic training script
+├── train_5090_optimized.py     # Full training (GPU-optimized, recommended)
 └── EXPERIMENTAL_RESULTS.md     # Complete experimental results
 ```
 
@@ -180,12 +180,9 @@ Our method consistently outperforms:
 
 ## 📚 Documentation
 
-- [**EXPERIMENTAL_RESULTS.md**](EXPERIMENTAL_RESULTS.md) - Complete experimental results
-- [**LOCAL_TRAINING_GUIDE.md**](LOCAL_TRAINING_GUIDE.md) - Local training guide
-- [**5090_OPTIMIZATION_GUIDE.md**](5090_OPTIMIZATION_GUIDE.md) - GPU optimization guide
-- [**AUTODL_UPLOAD_GUIDE.md**](AUTODL_UPLOAD_GUIDE.md) - Cloud deployment guide
-- [**PROJECT_STRUCTURE.md**](PROJECT_STRUCTURE.md) - Project structure
-- [**PAPER_GUIDE.md**](PAPER_GUIDE.md) - Paper writing guide
+- [**EXPERIMENTAL_RESULTS.md**](EXPERIMENTAL_RESULTS.md) - Complete experimental results and analysis
+- [**docs/DATA_LOADING.md**](docs/DATA_LOADING.md) - Data preparation guide
+- [**data/README.md**](data/README.md) - Dataset information
 
 ---
 
@@ -212,15 +209,12 @@ All experiments are reproducible with provided scripts:
 # Main experiment
 python train_5090_optimized.py --dataset amazon-book --seed 42
 
-# Ablation studies
-python experiments/ablation_study.py
-
-# Hyperparameter search
-python experiments/hyperparameter_search.py
+# Quick test
+python train_5090_optimized.py --dataset amazon-book --total-timesteps 10000 --seed 42
 ```
 
-**Random Seeds**: All experiments use seed=42.
-**Statistical Testing**: Paired t-test (p < 0.01) over 5 runs.
+**Random Seeds**: All experiments use seed=42 for reproducibility.
+**Statistical Testing**: Results reported with standard deviation over 5 independent runs.
 
 ---
 
