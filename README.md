@@ -190,8 +190,8 @@ If you find this work useful, please cite:
 ```bibtex
 @inproceedings{rakgppo2025,
   title={RA-KG-PPO: Retrieval-Augmented Knowledge Graph PPO for Sequential Recommendation},
-  author={[Your Name]},
-  booktitle={[Conference Name]},
+  author={[Haotong Xie]},
+  booktitle={[]},
   year={2025}
 }
 ```
