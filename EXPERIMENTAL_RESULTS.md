@@ -570,24 +570,5 @@ python experiments/hyperparameter_search.py
 
 ---
 
-## Citation
-
-If you use this code or data, please cite:
-
-```bibtex
-@inproceedings{rakgppo2025,
-  title={RA-KG-PPO: Retrieval-Augmented Knowledge Graph PPO for Sequential Recommendation},
-  author={[Your Name]},
-  booktitle={[Conference Name]},
-  year={2025}
-}
-```
-
----
-
-## Contact
-
-For questions or issues, please open an issue on GitHub or contact [your email].
-
 **Last Updated**: December 20, 2024
 **Version**: 1.0
