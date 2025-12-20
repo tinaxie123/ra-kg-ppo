@@ -15,7 +15,6 @@ from data.dataset import (
 
 
 def print_data_statistics(data: dict):
-    print(f"\n【用户-物品交互】")
     print(f"  训练用户数: {len(data['train_data'])}")
     print(f"  测试用户数: {len(data['test_data'])}")
     print(f"  总用户数: {data['n_users']}")
@@ -32,8 +31,6 @@ def print_data_statistics(data: dict):
     print(f"    Max: {max(seq_lengths)}")
     print(f"    Mean: {np.mean(seq_lengths):.2f}")
     print(f"    Median: {np.median(seq_lengths):.0f}")
-
-    print(f"\n【知识图谱】")
     kg_data = data['kg_data']
     print(f"  实体数: {kg_data['n_entities']}")
     print(f"  关系数: {kg_data['n_relations']}")
@@ -56,8 +53,6 @@ def print_data_statistics(data: dict):
         print(f"    Max: {max(degrees)}")
         print(f"    Mean: {np.mean(degrees):.2f}")
         print(f"    Median: {np.median(degrees):.0f}")
-
-    print(f"\n【嵌入】")
     print(f"  物品嵌入维度: {data['item_embeddings'].shape}")
     print(f"  KG嵌入维度: {data['kg_embeddings'].shape}")
 
@@ -78,7 +73,7 @@ def verify_data_integrity(data: dict):
     if max_item_id >= data['n_items']:
         errors.append(f"物品ID超出范围: max={max_item_id}, n_items={data['n_items']}")
     else:
-        print(f"  [OK] 物品ID范围正常: [0, {max_item_id}]")
+        print(f" 物品ID范围正常: [0, {max_item_id}]")
     if data['item_embeddings'].shape[0] != data['n_items']:
         errors.append(
             f"物品嵌入数量不匹配: {data['item_embeddings'].shape[0]} != {data['n_items']}"
@@ -91,37 +86,36 @@ def verify_data_integrity(data: dict):
             f"KG嵌入数量不匹配: {data['kg_embeddings'].shape[0]} != {data['kg_data']['n_entities']}"
         )
     else:
-        print(f"  [OK] KG嵌入维度: {data['kg_embeddings'].shape}")
+        print(f" KG嵌入维度: {data['kg_embeddings'].shape}")
     item_emb_mean = torch.mean(torch.abs(data['item_embeddings'])).item()
     kg_emb_mean = torch.mean(torch.abs(data['kg_embeddings'])).item()
 
     if item_emb_mean < 1e-5:
         warnings.append("物品嵌入可能未正确初始化(均值过小)")
     else:
-        print(f"  [OK] 物品嵌入均值: {item_emb_mean:.6f}")
+        print(f"物品嵌入均值: {item_emb_mean:.6f}")
 
     if kg_emb_mean < 1e-5:
         warnings.append("KG嵌入可能未正确初始化(均值过小)")
     else:
-        print(f"  [OK] KG嵌入均值: {kg_emb_mean:.6f}")
+        print(f"KG嵌入均值: {kg_emb_mean:.6f}")
     if len(data['kg_data']['triples']) > 0:
       
         n_entities = data['kg_data']['n_entities']
         n_relations = data['kg_data']['n_relations']
 
         invalid_triples = 0
-        for h, r, t in data['kg_data']['triples'][:1000]:  # 采样检查
+        for h, r, t in data['kg_data']['triples'][:1000]:  
             if h >= n_entities or t >= n_entities:
                 invalid_triples += 1
             if r >= n_relations:
                 invalid_triples += 1
 
         if invalid_triples > 0:
-            errors.append(f"发现{invalid_triples}个无效三元组(采样1000条)")
+            errors.append(f"发现{invalid_triples}个无效三元组")
         else:
-            print(f"  [OK] 三元组格式正确")
+            print(f"三元组格式正确")
     if errors:
-        print("[ERROR] 发现错误:")
         for error in errors:
             print(f"  - {error}")
 
@@ -131,10 +125,6 @@ def verify_data_integrity(data: dict):
             print(f"  - {warning}")
 
     if not errors and not warnings:
-        print("[OK] 所有检查通过!")
-
-    print("="*60 + "\n")
-
     return len(errors) == 0
 
 
@@ -183,7 +173,6 @@ def main():
     print(f"\n开始加载数据集: {args.dataset}")
     print(f"数据路径: {args.data_path}")
     print(f"TransE训练轮数: {args.transe_epochs}\n")
-
     try:
         data = load_kgat_data(args.dataset, args.data_path)
     except FileNotFoundError as e:
@@ -191,14 +180,10 @@ def main():
         sys.exit(1)
     print_data_statistics(data)
     is_valid = verify_data_integrity(data)
-
     if not is_valid:
         print("[ERROR] 数据验证失败!")
         sys.exit(1)
-
-    print("\n[OK] 数据预处理完成!")
-    print(f"[OK] 数据已保存到: {os.path.join(args.data_path, args.dataset)}")
-
+    print("\n数据预处理完成!")
     return 0
 
 
