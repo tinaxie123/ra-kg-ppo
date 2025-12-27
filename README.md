@@ -168,7 +168,7 @@ Our method consistently outperforms:
 
 | Metric | Value |
 |--------|-------|
-| Training Time | 4.2 hours (RTX 5090) |
+| Training Time | 4.2 hours (RTX 4090) |
 | Inference Latency | 5.3 ms/user |
 | Model Size | 4.7M parameters |
 | GPU Memory | 5.8 GB |
