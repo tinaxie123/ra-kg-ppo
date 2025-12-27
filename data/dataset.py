@@ -291,8 +291,9 @@ def quick_check_data(data_path: str = './data/'):
                 print(f"   Missing: {file}")
                 all_ok = False
     if all_ok:
+        print("\n[OK] All datasets are available!")
     else:
-        print("Some datasets are missing.")
+        print("\n[WARN] Some datasets are missing.")
         print("\nPlease download from:")
         print("https://github.com/xiangwang1223/knowledge_graph_attention_network/tree/master/Data")
     return all_ok

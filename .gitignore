@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+.claude/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Data files (too large for git)
+data/amazon-book/*.txt
+data/last-fm/*.txt
+data/yelp2018/*.txt
+*.npy
+*.pkl
+*.pickle
+
+# Model checkpoints
+checkpoints/
+checkpoints_*/
+*.pt
+*.pth
+
+# Logs
+*.log
+logs/
+runs/
+tensorboard/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Compressed files
+*.zip
+*.tar.gz
+*.rar
