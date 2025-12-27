@@ -279,8 +279,4 @@ For questions or issues, please:
 - [KGAT](https://github.com/xiangwang1223/knowledge_graph_attention_network)
 - [SASRec](https://github.com/kang205/SASRec)
 - [KGIN](https://github.com/huangjianxian/KGIN)
-
----
-
-**Last Updated**: December 2024
 **Status**: Active Development
