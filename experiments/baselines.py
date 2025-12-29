@@ -5,8 +5,7 @@ This script implements and evaluates baseline recommendation methods:
 1. PopRec: Popularity-based recommendation
 2. BPR: Bayesian Personalized Ranking
 3. GRU4Rec: GRU-based sequential recommendation
-4. SASRec: Self-Attentive Sequential Recommendation (simplified)
-
+4. SASRec: Self-Attentive Sequential Recommendation 
 Usage:
     # Run all baselines
     python experiments/baselines.py --dataset amazon-book --method all
